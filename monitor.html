@@ -1,0 +1,789 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Viva Monitor - Centro de Producción Inteligente</title>
+    <style>
+        :root {
+            --bg: #f1f5f9;
+            --card: #ffffff;
+            --primary: #000000;
+            --accent: #2563eb;
+            --success: #16a34a;
+            --warning: #d97706;
+            --danger: #dc2626;
+            --whatsapp: #25d366;
+        }
+        body { font-family: Arial, "Helvetica Neue", Helvetica, sans-serif; background: var(--bg); margin: 0; color: #333; padding-bottom: 70px; }
+        
+        /* PANTALLAS DE AUTENTICACIÓN */
+        .auth-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: #0f172a; z-index: 1000; display: flex; justify-content: center; align-items: center; }
+        .auth-card { background: white; padding: 30px; border-radius: 12px; width: 90%; max-width: 350px; box-shadow: 0 10px 25px rgba(0,0,0,0.3); text-align: center; }
+        .auth-card h2 { margin-top: 0; color: #0f172a; }
+        .auth-card label { display: block; font-size: 0.8rem; font-weight: bold; text-align: left; color: #64748b; margin-top: 10px; margin-bottom: 4px; text-transform: uppercase; }
+        .auth-card select, .auth-card input { width: 100%; padding: 10px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 0.9rem; box-sizing: border-box; margin-bottom: 12px; }
+        .auth-btn { background: var(--accent); color: white; border: none; width: 100%; padding: 12px; border-radius: 6px; font-weight: bold; cursor: pointer; font-size: 0.9rem; margin-top: 5px; }
+        .auth-btn-wa { background: var(--whatsapp); color: white; border: none; width: 100%; padding: 12px; border-radius: 6px; font-weight: bold; cursor: pointer; font-size: 0.9rem; margin-top: 10px; display: flex; align-items: center; justify-content: center; gap: 8px; text-decoration: none; box-sizing: border-box;}
+        .auth-link { margin-top: 12px; font-size: 0.8rem; color: var(--accent); cursor: pointer; text-decoration: underline; font-weight: bold; display: inline-block; }
+
+        /* BARRA SUPERIOR */
+        .header { background: var(--primary); color: white; padding: 12px 20px; display: flex; justify-content: space-between; align-items: center; position: sticky; top: 0; z-index: 100; box-shadow: 0 2px 10px rgba(0,0,0,0.2); }
+        .header h1 { margin: 0; font-size: 1.2rem; display: flex; align-items: center; gap: 8px; letter-spacing: -0.5px; }
+        .header h1 b { color: #f39200; }
+        .status-dot { width: 10px; height: 10px; background: #22c55e; border-radius: 50%; display: inline-block; box-shadow: 0 0 8px #22c55e; }
+        
+        .header-right { display: flex; align-items: center; gap: 15px; }
+        .notif-badge-container { position: relative; cursor: pointer; font-size: 1.2rem; color: #ffffff; }
+        .notif-count { position: absolute; top: -6px; right: -8px; background: var(--danger); color: white; font-size: 0.65rem; padding: 2px 6px; border-radius: 50%; font-weight: bold; }
+        
+        .user-badge { background: #1e293b; color: white; border: 1px solid #475569; padding: 6px 12px; border-radius: 6px; font-weight: bold; font-size: 0.8rem; display: flex; align-items: center; gap: 8px; }
+        .user-avatar-circle { width: 18px; height: 18px; border-radius: 50%; display: inline-block; vertical-align: middle; border: 1px solid #fff; }
+        .btn-logout { background: #ef4444; border: none; color: white; padding: 4px 8px; border-radius: 4px; font-size: 0.7rem; cursor: pointer; font-weight: bold; }
+
+        /* VISTAS */
+        .view-section { display: none; }
+        .view-section.active { display: block; }
+
+        /* TABLERO KANBAN */
+        .board { display: flex; gap: 15px; padding: 15px; align-items: flex-start; overflow-x: auto; min-height: calc(100vh - 130px); }
+        .column { flex: 1; min-width: 280px; max-width: 400px; background: #e2e8f0; border-radius: 10px; padding: 12px; max-height: calc(100vh - 140px); overflow-y: auto; }
+        .column-header { font-weight: bold; text-transform: uppercase; margin-bottom: 15px; padding: 5px; font-size: 0.85rem; color: #475569; display: flex; justify-content: space-between; align-items: center; }
+        .badge-count { background: rgba(0,0,0,0.1); padding: 2px 8px; border-radius: 12px; font-size: 0.8rem; color: #1e293b; }
+        
+        /* TARJETAS DE ÓRDENES */
+        .order-card { background: var(--card); border-radius: 8px; padding: 15px; margin-bottom: 12px; box-shadow: 0 2px 4px rgba(0,0,0,0.05); border-left: 5px solid #ccc; position: relative; }
+        .status-por_asignar { border-left-color: #64748b; }
+        .status-en_diseno { border-left-color: #ca8a04; }
+        .status-en_produccion { border-left-color: #2563eb; }
+        .status-instalacion { border-left-color: #15803d; }
+        .status-completado { border-left-color: var(--success); opacity: 0.7; }
+        
+        .order-header { display: flex; justify-content: space-between; margin-bottom: 8px; border-bottom: 1px solid #eee; padding-bottom: 8px; align-items: center; }
+        .proforma-badge { background: #f1f5f9; padding: 4px 8px; border-radius: 4px; font-weight: bold; font-size: 0.8rem; color: #1e293b; }
+        
+        .client-name { font-weight: bold; font-size: 1rem; margin-bottom: 8px; color: #0f172a; }
+        .items-list { font-size: 0.8rem; color: #475569; margin-bottom: 10px; background: #f8fafb; padding: 8px; border-radius: 6px; border: 1px solid #edf2f7; }
+        .items-list ul { margin: 0; padding-left: 18px; }
+        .items-list li { margin-bottom: 3px; }
+        
+        .assign-box { margin-bottom: 10px; font-size: 0.8rem; display: flex; align-items: center; justify-content: space-between; background: #f1f5f9; padding: 6px 8px; border-radius: 6px; }
+        .assign-box select { border: 1px solid #cbd5e1; border-radius: 4px; padding: 4px; font-size: 0.75rem; background: #fff; font-weight: bold; width: 130px; }
+
+        .checklist-box { font-size: 0.75rem; background: #fffbeb; border: 1px solid #fde68a; padding: 6px 8px; border-radius: 6px; margin-bottom: 10px; }
+        .checklist-box ul { margin: 0; padding-left: 15px; color: #92400e; }
+
+        .actions { display: flex; gap: 8px; }
+        .btn { flex: 1; padding: 10px; border: none; border-radius: 6px; cursor: pointer; font-weight: bold; font-size: 0.75rem; color: white; text-transform: uppercase; }
+        .btn-disabled { background: #cbd5e1 !important; color: #64748b !important; cursor: not-allowed; }
+        .btn-delete { background: #ef4444; flex: 0.25; font-size: 1rem; }
+
+        /* CONTENEDORES */
+        .panel-container { background: white; padding: 20px; border-radius: 10px; max-width: 600px; margin: 20px auto; box-shadow: 0 2px 5px rgba(0,0,0,0.05); }
+        .team-input-group { display: flex; gap: 10px; margin-bottom: 15px; }
+        .team-input-group input { flex: 1; padding: 8px; border: 1px solid #cbd5e1; border-radius: 6px; }
+
+        /* MENÚ INFERIOR */
+        .bottom-nav { position: fixed; bottom: 0; left: 0; width: 100%; background: #0f172a; display: flex; justify-content: space-around; padding: 8px 0; z-index: 200; box-shadow: 0 -2px 10px rgba(0,0,0,0.2); }
+        .nav-item { background: none; border: none; color: #94a3b8; font-size: 0.7rem; font-weight: bold; cursor: pointer; display: flex; flex-direction: column; align-items: center; gap: 3px; text-transform: uppercase; }
+        .nav-item.active { color: #fff; }
+        .nav-item svg { width: 22px; height: 22px; fill: currentColor; }
+
+        .loader-bar { height: 4px; background: var(--warning); width: 0%; transition: width 0.3s; position: fixed; top: 0; left: 0; z-index: 300; }
+    </style>
+</head>
+<body>
+
+<div class="loader-bar" id="loader"></div>
+
+<!-- 1. PANTALLA DE LOGIN -->
+<div id="loginOverlay" class="auth-overlay">
+    <div class="auth-card">
+        <h2><b>VIVA</b> Monitor</h2>
+        <p style="font-size: 0.8rem; color: #64748b; margin-bottom: 15px;">Inicia sesión con tus credenciales:</p>
+        
+        <label>Usuario:</label>
+        <select id="loginUsuarioSelect" onchange="verificarSiEsAdminLogin()">
+            <option value="Administrador">👑 Administrador (Master)</option>
+        </select>
+
+        <label id="labelPassword">Contraseña / PIN:</label>
+        <input type="password" id="loginPasswordInput" placeholder="Introduce tu clave...">
+
+        <button class="auth-btn" onclick="iniciarSesion()">Entrar al Sistema</button>
+        <div id="loginErrorMsg" style="color: red; font-size: 0.75rem; margin-top: 8px; font-weight: bold;"></div>
+        
+        <div style="display: flex; justify-content: space-between; margin-top: 12px;">
+            <span class="auth-link" onclick="mostrarPantallaRegistro()">Crear Cuenta</span>
+            <span class="auth-link" onclick="mostrarRecuperarClave()" style="color: var(--warning);">Olvidé mi clave</span>
+        </div>
+    </div>
+</div>
+
+<!-- 2. PANTALLA DE CREAR CUENTA -->
+<div id="registerOverlay" class="auth-overlay" style="display: none;">
+    <div class="auth-card">
+        <h2><b>Crear Cuenta</b></h2>
+        <p style="font-size: 0.8rem; color: #64748b; margin-bottom: 15px;">Regístrate como nuevo integrante:</p>
+        
+        <label>Tu Nombre:</label>
+        <input type="text" id="regNombreInput" placeholder="Ej: Carlos, Ana...">
+
+        <label>Tu Contraseña / PIN personal:</label>
+        <input type="password" id="regPasswordInput" placeholder="Crea una clave segura...">
+
+        <label>Color de tu Avatar:</label>
+        <input type="color" id="regColorInput" value="#2563eb" style="height: 40px; padding: 2px; cursor: pointer;">
+
+        <button class="auth-btn" style="background:var(--success);" onclick="registrarNuevaCuenta()">Registrarme y Entrar</button>
+        <div id="regErrorMsg" style="color: red; font-size: 0.75rem; margin-top: 8px; font-weight: bold;"></div>
+        
+        <span class="auth-link" onclick="mostrarPantallaLogin()">← Volver al Login</span>
+    </div>
+</div>
+
+<!-- 3. PANTALLA DE RECUPERACIÓN VÍA WHATSAPP -->
+<div id="recoveryOverlay" class="auth-overlay" style="display: none;">
+    <div class="auth-card">
+        <h2><b>Recuperar Clave</b></h2>
+        <p style="font-size: 0.8rem; color: #64748b; margin-bottom: 15px;">Solicita tu PIN temporal directamente al Administrador por WhatsApp:</p>
+        
+        <label>Selecciona tu Usuario:</label>
+        <select id="recupUsuarioSelect"></select>
+
+        <a id="btnEnviarWhatsApp" href="#" target="_blank" class="auth-btn-wa" onclick="enviarWhatsAppAdmin()">
+            💬 Enviar Solicitud por WhatsApp
+        </a>
+        
+        <span class="auth-link" onclick="mostrarPantallaLogin()" style="margin-top: 15px;">← Volver al Login</span>
+    </div>
+</div>
+
+<!-- BARRA SUPERIOR -->
+<div class="header">
+    <h1><b>viva</b> Monitor <span class="status-dot" title="Sincronizado"></span></h1>
+    <div class="header-right">
+        <div class="notif-badge-container" onclick="cambiarVista('mis-tareas')" title="Tareas asignadas a mí">
+            🔔 <span class="notif-count" id="globalNotifCount">0</span>
+        </div>
+        <div class="user-badge">
+            <span id="labelSesionActiva"><span id="headerAvatarCircle" class="user-avatar-circle" style="background:#2563eb;"></span> Usuario</span>
+            <button class="btn-logout" onclick="cerrarSesion()">Salir</button>
+        </div>
+    </div>
+</div>
+
+<!-- VISTA 1: TABLERO KANBAN -->
+<div id="vista-tablero" class="view-section active">
+    <div class="board">
+        <div class="column" id="col-por-asignar">
+            <div class="column-header">1. Por Asignar <span class="badge-count" id="count-por-asignar">0</span></div>
+            <div id="lista-por-asignar"></div>
+        </div>
+        <div class="column" id="col-diseno" style="background: #fef08a;">
+            <div class="column-header" style="color: #a16207;">2. En Diseño <span class="badge-count" id="count-diseno">0</span></div>
+            <div id="lista-diseno"></div>
+        </div>
+        <div class="column" id="col-produccion" style="background: #bfdbfe;">
+            <div class="column-header" style="color: #1d4ed8;">3. Producción <span class="badge-count" id="count-produccion">0</span></div>
+            <div id="lista-produccion"></div>
+        </div>
+        <div class="column" id="col-instalacion" style="background: #bbf7d0;">
+            <div class="column-header" style="color: #15803d;">4. Instalación <span class="badge-count" id="count-instalacion">0</span></div>
+            <div id="lista-instalacion"></div>
+        </div>
+        <div class="column" id="col-completado" style="background: #f1f5f9; opacity: 0.8;">
+            <div class="column-header" style="color: #16a34a;">5. Completados <span class="badge-count" id="count-completado">0</span></div>
+            <div id="lista-completado"></div>
+        </div>
+    </div>
+</div>
+
+<!-- VISTA 2: MIS TAREAS -->
+<div id="vista-mis-tareas" class="view-section" style="padding: 20px; max-width: 800px; margin: auto;">
+    <h2 style="border-bottom: 2px solid #ccc; padding-bottom: 8px;">📋 Mis Tareas Asignadas</h2>
+    <p style="font-size: 0.85rem; color: #64748b;">Órdenes de producción bajo tu responsabilidad:</p>
+    <div id="contenedorMisTareas"></div>
+</div>
+
+<!-- VISTA 3: MI PERFIL -->
+<div id="vista-perfil" class="view-section">
+    <div class="panel-container">
+        <h2>🔒 Mi Perfil y Seguridad</h2>
+        <p style="font-size: 0.85rem; color: #64748b;">Personaliza tu clave de acceso y el color de tu avatar:</p>
+        
+        <div style="background: #f8fafb; padding: 15px; border-radius: 8px; border: 1px solid #e2e8f0; margin-bottom: 15px;">
+            <label style="display:block; font-size:0.8rem; font-weight:bold; margin-bottom:5px;">Nueva Contraseña / PIN:</label>
+            <input type="password" id="inputNuevaClavePersonal" placeholder="Introduce tu nueva clave..." style="width:100%; padding:10px; border:1px solid #cbd5e1; border-radius:6px; margin-bottom:12px; box-sizing:border-box;">
+            
+            <label style="display:block; font-size:0.8rem; font-weight:bold; margin-bottom:5px;">Color de tu Avatar:</label>
+            <input type="color" id="inputNuevoColorPersonal" value="#2563eb" style="width:100%; height:40px; padding:2px; border:1px solid #cbd5e1; border-radius:6px; margin-bottom:15px; cursor:pointer; box-sizing:border-box;">
+
+            <button onclick="guardarCambiosPerfil()" style="background:var(--accent); color:white; border:none; padding:10px 15px; border-radius:6px; font-weight:bold; cursor:pointer; width:100%;">Guardar Cambios de Perfil</button>
+            <div id="perfilMsg" style="font-size:0.8rem; font-weight:bold; margin-top:10px; text-align:center;"></div>
+        </div>
+    </div>
+</div>
+
+<!-- VISTA 4: EQUIPO (ADMIN) -->
+<div id="vista-equipo" class="view-section">
+    <div class="panel-container">
+        <h2>👥 Gestión del Equipo de Trabajo</h2>
+        <p style="font-size: 0.85rem; color: #64748b;">Configura el número de WhatsApp para recuperación y administra el personal (Solo Administrador):</p>
+        
+        <!-- Configuración de WhatsApp del Administrador -->
+        <div style="background: #f0fdf4; padding: 12px; border-radius: 8px; border: 1px solid #bbf7d0; margin-bottom: 15px;">
+            <label style="display:block; font-size:0.8rem; font-weight:bold; margin-bottom:5px; color:#166534;">📱 Tu Número de WhatsApp (para recibir peticiones de clave):</label>
+            <div class="team-input-group" style="margin-bottom: 0;">
+                <input type="text" id="inputAdminPhoneConfig" placeholder="Ej: 593999999999">
+                <button onclick="guardarAdminPhone()" style="background:var(--success); color:white; border:none; padding:8px 15px; border-radius:6px; font-weight:bold; cursor:pointer;">Guardar</button>
+            </div>
+            <div id="adminPhoneMsg" style="font-size: 0.75rem; color: #16a34a; font-weight: bold; margin-top: 5px;"></div>
+        </div>
+
+        <div style="background: #f8fafb; padding: 12px; border-radius: 8px; border: 1px solid #e2e8f0; margin-bottom: 15px;">
+            <div class="team-input-group" style="margin-bottom: 8px;">
+                <input type="text" id="inputNuevoMiembro" placeholder="Nombre (Ej: Luis, Pedro...)">
+                <input type="password" id="inputNuevoPin" placeholder="PIN personal o temporal">
+            </div>
+            <button onclick="agregarMiembroEquipoAdmin()" style="background:var(--accent); color:white; border:none; padding:10px; border-radius:6px; font-weight:bold; cursor:pointer; width:100%;">Añadir Miembro</button>
+        </div>
+
+        <div id="listaMiembrosEquipo"></div>
+    </div>
+</div>
+
+<!-- NAVEGACIÓN INFERIOR -->
+<div class="bottom-nav">
+    <button class="nav-item active" id="nav-btn-tablero" onclick="cambiarVista('tablero')">
+        <svg viewBox="0 0 24 24"><path d="M3 13h8V3H3v10zm0 8h8v-6H3v6zm10 0h8V11h-8v10zm0-18v6h8V3h-8z"/></svg>
+        Tablero
+    </button>
+    <button class="nav-item" id="nav-btn-mistareas" onclick="cambiarVista('mis-tareas')">
+        <svg viewBox="0 0 24 24"><path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-2 10h-4v4h-2v-4H7v-2h4V7h2v4h4v2z"/></svg>
+        Mis Tareas
+    </button>
+    <button class="nav-item" id="nav-btn-perfil" onclick="cambiarVista('perfil')">
+        <svg viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 3c1.66 0 3 1.34 3 3s-1.34 3-3 3-3-1.34-3-3 1.34-3 3-3zm0 14.2c-2.5 0-4.71-1.28-6-3.22.03-1.99 4-3.08 6-3.08 1.99 0 5.97 1.09 6 3.08-1.29 1.94-3.5 3.22-6 3.22z"/></svg>
+        Mi Perfil
+    </button>
+    <button class="nav-item" id="nav-btn-equipo" onclick="verificarAccesoEquipo()" style="display:none;">
+        <svg viewBox="0 0 24 24"><path d="M16 11c1.66 0 2.99-1.34 2.99-3S17.66 5 16 5c-1.66 0-3 1.34-3 3s1.34 3 3 3zm-8 0c1.66 0 2.99-1.34 2.99-3S9.66 5 8 5C6.34 5 5 6.34 5 8s1.34 3 3 3zm0 2c-2.33 0-7 1.17-7 3.5V19h14v-2.5c0-2.33-4.67-3.5-7-3.5zm8 0c-.29 0-.62.02-.97.05 1.16.84 1.97 1.97 1.97 3.45V19h6v-2.5c0-2.33-4.67-3.5-7-3.5z"/></svg>
+        Equipo
+    </button>
+</div>
+
+<script>
+    const urlFirebase = "https://viva-operaciones-default-rtdb.firebaseio.com/ordenes.json";
+    const baseFirebase = "https://viva-operaciones-default-rtdb.firebaseio.com/ordenes/";
+
+    let equipoCredenciales = JSON.parse(localStorage.getItem('viva_equipo_creds')) || {
+        "Carlos": { pin: "1234", color: "#2563eb" },
+        "Diego": { pin: "1234", color: "#16a34a" },
+        "Ana": { pin: "1234", color: "#d97706" }
+    };
+
+    let adminPhone = localStorage.getItem('viva_admin_phone') || "593999999999";
+    const PASSWORD_MASTER = "viva2026";
+    let usuarioActual = localStorage.getItem('viva_sesion_usuario') || null;
+    let datosGlobalesOrdenes = null;
+
+    document.addEventListener("DOMContentLoaded", () => {
+        poblarSelectLogin();
+        document.getElementById('inputAdminPhoneConfig').value = adminPhone;
+        if (usuarioActual) {
+            document.getElementById('loginOverlay').style.display = 'none';
+            document.getElementById('registerOverlay').style.display = 'none';
+            document.getElementById('recoveryOverlay').style.display = 'none';
+            activarSesionApp(usuarioActual);
+        } else {
+            document.getElementById('loginOverlay').style.display = 'flex';
+        }
+        cargarOrdenes();
+    });
+    setInterval(cargarOrdenes, 20000); 
+
+    function poblarSelectLogin() {
+        const select = document.getElementById('loginUsuarioSelect');
+        const selectRecup = document.getElementById('recupUsuarioSelect');
+        let html = '<option value="Administrador">👑 Administrador (Master)</option>';
+        let htmlRecup = '';
+        Object.keys(equipoCredenciales).forEach(m => {
+            html += `<option value="${m}">👤 ${m}</option>`;
+            htmlRecup += `<option value="${m}">👤 ${m}</option>`;
+        });
+        select.innerHTML = html;
+        if(selectRecup) selectRecup.innerHTML = htmlRecup;
+        verificarSiEsAdminLogin();
+    }
+
+    function verificarSiEsAdminLogin() {
+        const sel = document.getElementById('loginUsuarioSelect').value;
+        const passInput = document.getElementById('loginPasswordInput');
+        passInput.placeholder = (sel === "Administrador") ? "Introduce clave master..." : "Introduce tu PIN personal...";
+    }
+
+    function mostrarPantallaRegistro() {
+        document.getElementById('loginOverlay').style.display = 'none';
+        document.getElementById('registerOverlay').style.display = 'flex';
+    }
+
+    function mostrarPantallaLogin() {
+        document.getElementById('registerOverlay').style.display = 'none';
+        document.getElementById('recoveryOverlay').style.display = 'none';
+        document.getElementById('loginOverlay').style.display = 'flex';
+    }
+
+    function mostrarRecuperarClave() {
+        document.getElementById('loginOverlay').style.display = 'none';
+        document.getElementById('recoveryOverlay').style.display = 'flex';
+    }
+
+    function guardarAdminPhone() {
+        const telefono = document.getElementById('inputAdminPhoneConfig').value.trim();
+        const msg = document.getElementById('adminPhoneMsg');
+        if (telefono) {
+            adminPhone = telefono;
+            localStorage.setItem('viva_admin_phone', telefono);
+            msg.innerText = "✅ ¡Número de WhatsApp guardado con éxito!";
+            setTimeout(() => { msg.innerText = ""; }, 3000);
+        } else {
+            alert("⚠️ Introduce un número válido.");
+        }
+    }
+
+    function enviarWhatsAppAdmin() {
+        const usuario = document.getElementById('recupUsuarioSelect').value;
+        const mensaje = encodeURIComponent(`Hola Admin, soy *${usuario}* y olvidé mi contraseña o PIN en *Viva Monitor*. ¿Podrías generarme un PIN temporal por favor?`);
+        const urlWa = `https://wa.me/${adminPhone}?text=${mensaje}`;
+        document.getElementById('btnEnviarWhatsApp').href = urlWa;
+    }
+
+    function registrarNuevaCuenta() {
+        const nombre = document.getElementById('regNombreInput').value.trim();
+        const pin = document.getElementById('regPasswordInput').value.trim();
+        const color = document.getElementById('regColorInput').value;
+        const errorMsg = document.getElementById('regErrorMsg');
+
+        if (!nombre || !pin) {
+            errorMsg.innerText = "⚠️ Por favor llena todos los campos.";
+            return;
+        }
+
+        if (equipoCredenciales[nombre] || nombre === "Administrador") {
+            errorMsg.innerText = "⚠️ Ese nombre ya existe. Elige otro.";
+            return;
+        }
+
+        equipoCredenciales[nombre] = { pin: pin, color: color };
+        localStorage.setItem('viva_equipo_creds', JSON.stringify(equipoCredenciales));
+
+        document.getElementById('regNombreInput').value = '';
+        document.getElementById('regPasswordInput').value = '';
+        errorMsg.innerText = '';
+
+        poblarSelectLogin();
+        
+        localStorage.setItem('viva_sesion_usuario', nombre);
+        usuarioActual = nombre;
+        document.getElementById('registerOverlay').style.display = 'none';
+        activarSesionApp(nombre);
+    }
+
+    function iniciarSesion() {
+        const usuario = document.getElementById('loginUsuarioSelect').value;
+        const pass = document.getElementById('loginPasswordInput').value;
+        const errorMsg = document.getElementById('loginErrorMsg');
+
+        let accesoConcedido = false;
+        if (usuario === "Administrador") {
+            if (pass === PASSWORD_MASTER) accesoConcedido = true;
+        } else {
+            if (equipoCredenciales[usuario] && equipoCredenciales[usuario].pin === pass) {
+                accesoConcedido = true;
+            }
+        }
+
+        if (accesoConcedido) {
+            localStorage.setItem('viva_sesion_usuario', usuario);
+            usuarioActual = usuario;
+            document.getElementById('loginOverlay').style.display = 'none';
+            document.getElementById('loginPasswordInput').value = "";
+            errorMsg.innerText = "";
+            activarSesionApp(usuario);
+        } else {
+            errorMsg.innerText = "❌ Contraseña o PIN incorrecto.";
+        }
+    }
+
+    function cerrarSesion() {
+        localStorage.removeItem('viva_sesion_usuario');
+        usuarioActual = null;
+        document.getElementById('loginOverlay').style.display = 'flex';
+        poblarSelectLogin();
+    }
+
+    function activarSesionApp(usuario) {
+        let colorAvatar = "#2563eb";
+        if (usuario === "Administrador") {
+            colorAvatar = "#f39200";
+        } else if (equipoCredenciales[usuario]) {
+            colorAvatar = equipoCredenciales[usuario].color || "#2563eb";
+            document.getElementById('inputNuevoColorPersonal').value = colorAvatar;
+        }
+
+        document.getElementById('labelSesionActiva').innerHTML = `<span class="user-avatar-circle" style="background:${colorAvatar};"></span> ${usuario}`;
+        
+        if (usuario === "Administrador") {
+            document.getElementById('nav-btn-equipo').style.display = 'flex';
+        } else {
+            document.getElementById('nav-btn-equipo').style.display = 'none';
+        }
+        
+        renderizarListaEquipoAdmin();
+        if (datosGlobalesOrdenes) renderizarInterfazCompleta(datosGlobalesOrdenes);
+    }
+
+    function guardarCambiosPerfil() {
+        const nuevaClave = document.getElementById('inputNuevaClavePersonal').value.trim();
+        const nuevoColor = document.getElementById('inputNuevoColorPersonal').value;
+        const msg = document.getElementById('perfilMsg');
+
+        if (usuarioActual === "Administrador") {
+            msg.style.color = "red";
+            msg.innerText = "⚠️ La cuenta de Administrador Master no se edita desde aquí.";
+            return;
+        }
+
+        if (nuevaClave) {
+            equipoCredenciales[usuarioActual].pin = nuevaClave;
+        }
+        equipoCredenciales[usuarioActual].color = nuevoColor;
+
+        localStorage.setItem('viva_equipo_creds', JSON.stringify(equipoCredenciales));
+        
+        document.getElementById('inputNuevaClavePersonal').value = '';
+        msg.style.color = "green";
+        msg.innerText = "✅ ¡Perfil actualizado con éxito!";
+        activarSesionApp(usuarioActual);
+    }
+
+    async function cargarOrdenes() {
+        mostrarLoader(true);
+        try {
+            const respuesta = await fetch(urlFirebase);
+            datosGlobalesOrdenes = await respuesta.json();
+            if (usuarioActual) renderizarInterfazCompleta(datosGlobalesOrdenes);
+        } catch (error) {
+            console.error("Error al cargar:", error);
+        } finally {
+            mostrarLoader(false);
+        }
+    }
+
+    function renderizarInterfazCompleta(datos) {
+        renderizarTablero(datos);
+        renderizarMisTareas(datos);
+        actualizarContadorNotificaciones(datos);
+    }
+
+    function renderizarTablero(datos) {
+        const contenedores = {
+            "por_asignar": document.getElementById("lista-por-asignar"),
+            "en_diseno": document.getElementById("lista-diseno"),
+            "en_produccion": document.getElementById("lista-produccion"),
+            "instalacion": document.getElementById("lista-instalacion"),
+            "completado": document.getElementById("lista-completado")
+        };
+        
+        const contadores = { "por_asignar": 0, "en_diseno": 0, "en_produccion": 0, "instalacion": 0, "completado": 0 };
+        const htmlAcumulado = { "por_asignar": "", "en_diseno": "", "en_produccion": "", "instalacion": "", "completado": "" };
+
+        if (datos) {
+            const ordenesArray = Object.keys(datos).map(id => ({ id, ...datos[id] }));
+            ordenesArray.sort((a, b) => new Date(b.fecha_ingreso) - new Date(a.fecha_ingreso));
+
+            ordenesArray.forEach(orden => {
+                const estado = orden.estado_flujo || "por_asignar";
+                const columnaDestino = contenedores[estado] ? estado : "por_asignar";
+                
+                htmlAcumulado[columnaDestino] += crearTarjetaHTML(orden.id, orden, estado);
+                contadores[columnaDestino]++;
+            });
+        }
+
+        Object.keys(contenedores).forEach(estado => {
+            if (contenedores[estado]) contenedores[estado].innerHTML = htmlAcumulado[estado];
+        });
+
+        document.getElementById("count-por-asignar").innerText = contadores["por_asignar"];
+        document.getElementById("count-diseno").innerText = contadores["en_diseno"];
+        document.getElementById("count-produccion").innerText = contadores["en_produccion"];
+        document.getElementById("count-instalacion").innerText = contadores["instalacion"];
+        document.getElementById("count-completado").innerText = contadores["completado"];
+    }
+
+    function crearTarjetaHTML(id, orden, estado) {
+        const cliente = orden.datos_cotizacion?.cliente?.nombre || "CLIENTE NO REGISTRADO";
+        const proforma = orden.proforma_ref || "S/N";
+        const items = orden.datos_cotizacion?.items || [];
+        const responsableActual = orden.responsable || "Sin Asignar";
+
+        let itemsHTML = "<ul>";
+        items.forEach(item => { itemsHTML += `<li><b>${item.nombre}</b></li>`; });
+        itemsHTML += "</ul>";
+
+        let checklistHTML = "";
+        if(orden.checklist_ia && orden.checklist_ia.length > 0) {
+            checklistHTML = `<div class="checklist-box"><div style="font-weight:bold; margin-bottom:3px;">🤖 Checklist IA:</div><ul>`;
+            orden.checklist_ia.forEach(paso => { checklistHTML += `<li>${paso}</li>`; });
+            checklistHTML += `</ul></div>`;
+        }
+
+        let optionsSelect = "";
+        Object.keys(equipoCredenciales).forEach(miembro => {
+            let sel = (responsableActual === miembro) ? "selected" : "";
+            optionsSelect += `<option value="${miembro}" ${sel}>${miembro}</option>`;
+        });
+
+        const esAdmin = (usuarioActual === "Administrador");
+        const esAsignado = (responsableActual === usuarioActual);
+        const tienePermisoAccion = esAdmin || esAsignado;
+
+        const requiereInstalacion = items.some(item => item.id === 'instala');
+        let botonesHTML = "";
+
+        if (estado === "por_asignar") {
+            botonesHTML = crearBotonAccion(id, 'en_diseno', '▶ A Diseño', tienePermisoAccion);
+        } else if (estado === "en_diseno") {
+            botonesHTML = crearBotonAccion(id, 'en_produccion', '▶ A Producción', tienePermisoAccion);
+        } else if (estado === "en_produccion") {
+            if (requiereInstalacion) {
+                botonesHTML = crearBotonAccion(id, 'instalacion', '▶ A Instalación', tienePermisoAccion);
+            } else {
+                botonesHTML = crearBotonAccion(id, 'completado', '✔ Completar', tienePermisoAccion);
+            }
+        } else if (estado === "instalacion") {
+            botonesHTML = crearBotonAccion(id, 'completado', '✔ Completar', tienePermisoAccion);
+        } else if (estado === "completado") {
+            botonesHTML = crearBotonAccion(id, 'en_produccion', '↩ Reabrir', tienePermisoAccion);
+        }
+        
+        if (esAdmin) {
+            botonesHTML += `<button class="btn btn-delete" title="Eliminar" onclick="eliminarOrden('${id}')">🗑</button>`;
+        }
+
+        return `
+            <div class="order-card status-${estado}" id="card-${id}">
+                <div class="order-header">
+                    <span class="proforma-badge"># ${proforma}</span>
+                    <span style="font-size: 0.7rem; color:#64748b; font-weight:bold;">${new Date(orden.fecha_ingreso).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</span>
+                </div>
+                <div class="client-name">👤 ${cliente}</div>
+                <div class="items-list">${itemsHTML}</div>
+                ${checklistHTML}
+                <div class="assign-box">
+                    <span>👷‍♂️ Responsable:</span>
+                    <select onchange="actualizarResponsable('${id}', this.value)" ${!esAdmin ? 'disabled style="background:#e2e8f0;"' : ''}>
+                        <option value="Sin Asignar">-- Sin Asignar --</option>
+                        ${optionsSelect}
+                    </select>
+                </div>
+                <div class="actions">${botonesHTML}</div>
+                ${!tienePermisoAccion ? '<div style="font-size:0.65rem; color:#d97706; margin-top:5px; text-align:center;">🔒 Solo el responsable asignado puede avanzar</div>' : ''}
+            </div>
+        `;
+    }
+
+    function crearBotonAccion(id, nuevoEstado, texto, permitido) {
+        if (permitido) {
+            return `<button class="btn" style="background:#2563eb;" onclick="cambiarEstado('${id}', '${nuevoEstado}')">${texto}</button>`;
+        } else {
+            return `<button class="btn btn-disabled" disabled>${texto}</button>`;
+        }
+    }
+
+    function renderizarMisTareas(datos) {
+        const contenedor = document.getElementById('contenedorMisTareas');
+        if(!contenedor) return;
+
+        if (usuarioActual === "Administrador") {
+            contenedor.innerHTML = `<p style="color:#64748b;">Estás viendo la cuenta del Administrador.</p>`;
+            return;
+        }
+
+        if (!datos) {
+            contenedor.innerHTML = `<p>No hay órdenes en el sistema.</p>`;
+            return;
+        }
+
+        let html = "";
+        let misTareasCount = 0;
+
+        Object.keys(datos).forEach(id => {
+            const orden = datos[id];
+            if (orden.responsable === usuarioActual && orden.estado_flujo !== 'completado') {
+                misTareasCount++;
+                const cliente = orden.datos_cotizacion?.cliente?.nombre || "CLIENTE";
+                html += `<div style="background:white; padding:12px; border-radius:8px; margin-bottom:10px; border-left:5px solid #2563eb; box-shadow:0 1px 3px rgba(0,0,0,0.1);">
+                    <div style="display:flex; justify-content:space-between; font-weight:bold;"><span>Proforma #${orden.proforma_ref} - ${cliente}</span><span style="color:#d97706; text-transform:uppercase; font-size:0.8rem;">Estado: ${orden.estado_flujo}</span></div>
+                </div>`;
+            }
+        });
+
+        if (misTareasCount === 0) {
+            contenedor.innerHTML = `<p style="color: #16a34a; font-weight: bold;">🎉 ¡Excelente! No tienes tareas pendientes asignadas.</p>`;
+        } else {
+            contenedor.innerHTML = `<p>Tienes <b>${misTareasCount}</b> tareas pendientes:</p>` + html;
+        }
+    }
+
+    function actualizarContadorNotificaciones(datos) {
+        if (!datos || usuarioActual === "Administrador") {
+            document.getElementById('globalNotifCount').innerText = "0";
+            return;
+        }
+        let count = 0;
+        Object.keys(datos).forEach(id => {
+            if (datos[id].responsable === usuarioActual && datos[id].estado_flujo !== 'completado') {
+                count++;
+            }
+        });
+        document.getElementById('globalNotifCount').innerText = count;
+    }
+
+    // GESTIÓN DE EQUIPO (ADMINISTRADOR)
+    function agregarMiembroEquipoAdmin() {
+        const nombre = document.getElementById('inputNuevoMiembro').value.trim();
+        const pin = document.getElementById('inputNuevoPin').value.trim();
+        
+        if(nombre && pin) {
+            equipoCredenciales[nombre] = { pin: pin, color: "#2563eb" };
+            localStorage.setItem('viva_equipo_creds', JSON.stringify(equipoCredenciales));
+            document.getElementById('inputNuevoMiembro').value = '';
+            document.getElementById('inputNuevoPin').value = '';
+            poblarSelectLogin();
+            renderizarListaEquipoAdmin();
+            alert("✅ Miembro agregado con éxito");
+        } else {
+            alert("⚠️ Completa el nombre y la contraseña.");
+        }
+    }
+
+    function eliminarMiembroEquipo(nombre) {
+        if(confirm(`¿Seguro que deseas eliminar a ${nombre}?`)) {
+            delete equipoCredenciales[nombre];
+            localStorage.setItem('viva_equipo_creds', JSON.stringify(equipoCredenciales));
+            poblarSelectLogin();
+            renderizarListaEquipoAdmin();
+        }
+    }
+
+    function resetearPinAdmin(nombre) {
+        const nuevoPin = prompt(`Asignar nuevo PIN temporal para ${nombre}:`);
+        if (nuevoPin) {
+            equipoCredenciales[nombre].pin = nuevoPin;
+            localStorage.setItem('viva_equipo_creds', JSON.stringify(equipoCredenciales));
+            renderizarListaEquipoAdmin();
+            alert(`✅ PIN actualizado para ${nombre}.`);
+        }
+    }
+
+    function renderizarListaEquipoAdmin() {
+        const contenedor = document.getElementById('listaMiembrosEquipo');
+        if(!contenedor) return;
+
+        let html = "";
+        Object.keys(equipoCredenciales).forEach(m => {
+            let col = equipoCredenciales[m].color || "#2563eb";
+            html += `<div style="display:flex; justify-content:space-between; align-items:center; background:#f8fafb; padding:10px; border-radius:6px; margin-bottom:6px; border:1px solid #edf2f7;">
+                <span><span class="user-avatar-circle" style="background:${col};"></span> <b>${m}</b> (PIN: ${equipoCredenciales[m].pin})</span>
+                <div>
+                    <button onclick="resetearPinAdmin('${m}')" style="background:#f59e0b; color:white; border:none; padding:4px 8px; border-radius:4px; cursor:pointer; font-size:0.7rem; font-weight:bold; margin-right:5px;">Cambiar PIN</button>
+                    <button onclick="eliminarMiembroEquipo('${m}')" style="background:#ef4444; color:white; border:none; padding:4px 8px; border-radius:4px; cursor:pointer; font-size:0.7rem; font-weight:bold;">Eliminar</button>
+                </div>
+            </div>`;
+        });
+        contenedor.innerHTML = html;
+    }
+
+    function verificarAccesoEquipo() {
+        if (usuarioActual === "Administrador") {
+            cambiarVista('equipo');
+        } else {
+            alert("🔒 Acceso exclusivo para el Administrador.");
+        }
+    }
+
+    function cambiarVista(vista) {
+        document.getElementById('vista-tablero').classList.remove('active');
+        document.getElementById('vista-mis-tareas').classList.remove('active');
+        document.getElementById('vista-perfil').classList.remove('active');
+        document.getElementById('vista-equipo').classList.remove('active');
+        
+        document.getElementById('nav-btn-tablero').classList.remove('active');
+        document.getElementById('nav-btn-mistareas').classList.remove('active');
+        document.getElementById('nav-btn-perfil').classList.remove('active');
+        document.getElementById('nav-btn-equipo').classList.remove('active');
+
+        if (vista === 'tablero') {
+            document.getElementById('vista-tablero').classList.add('active');
+            document.getElementById('nav-btn-tablero').classList.add('active');
+        } else if (vista === 'mis-tareas') {
+            document.getElementById('vista-mis-tareas').classList.add('active');
+            document.getElementById('nav-btn-mistareas').classList.add('active');
+        } else if (vista === 'perfil') {
+            document.getElementById('vista-perfil').classList.add('active');
+            document.getElementById('nav-btn-perfil').classList.add('active');
+        } else if (vista === 'equipo') {
+            document.getElementById('vista-equipo').classList.add('active');
+            document.getElementById('nav-btn-equipo').classList.add('active');
+        }
+        window.scrollTo(0,0);
+    }
+
+    async function cambiarEstado(idFirebase, nuevoEstado) {
+        mostrarLoader(true);
+        try {
+            await fetch(baseFirebase + idFirebase + ".json", {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ estado_flujo: nuevoEstado })
+            });
+            cargarOrdenes(); 
+        } catch (error) {
+            console.error("Error al actualizar:", error);
+        }
+    }
+
+    async function actualizarResponsable(idFirebase, nuevoResponsable) {
+        try {
+            await fetch(baseFirebase + idFirebase + ".json", {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ responsable: nuevoResponsable })
+            });
+            cargarOrdenes();
+        } catch (error) {
+            console.error("Error al actualizar responsable:", error);
+        }
+    }
+
+    async function eliminarOrden(idFirebase) {
+        if (!confirm("¿Seguro que deseas eliminar esta orden?")) return;
+        mostrarLoader(true);
+        try {
+            await fetch(baseFirebase + idFirebase + ".json", { method: 'DELETE' });
+            cargarOrdenes();
+        } catch (error) {
+            console.error("Error al eliminar:", error);
+        }
+    }
+
+    function mostrarLoader(activo) {
+        document.getElementById("loader").style.width = activo ? "100%" : "0%";
+    }
+</script>
+
+</body>
+</html>
